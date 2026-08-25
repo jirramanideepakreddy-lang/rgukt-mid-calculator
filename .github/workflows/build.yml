@@ -1,9 +1,18 @@
-name: Build Android APK
+name: Build & Deploy Web App
 
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -22,14 +31,27 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Enable Web
+        run: flutter config --enable-web
+
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --split-per-abi
+      - name: Build Web
+        run: flutter build web --base-href "/${{ github.event.repository.name }}/"
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: rgukt-app
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4       
